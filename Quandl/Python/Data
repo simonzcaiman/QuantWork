@@ -1,0 +1,106 @@
+''' This script is to help downloading data using quandl python API, cleaning the data and storing the data into hdf5 database
+
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May 24 09:14:11 2016
+
+@author: Simon Zhang
+"""
+
+import pandas as pd
+import numpy as np
+import Quandl
+
+
+#%%
+hdf=pd.HDFStore(r'xxx_v1.1.h5')
+
+
+#%% Read S&P 500 csv to list
+
+path=r'xxx\SP500.csv'
+#path='http://static.quandl.com/end_of_day_us_stocks/ticker_list.csv'
+raw=pd.read_csv(path,delimiter=',')
+stock_list=raw.premium_code
+stocks=np.array(stock_list,dtype=str)
+stocks_list=stocks.tolist()
+
+#%% Clean Quandl Columns Function
+def clean_quandl_columns(dataframe):
+    replacement_columns = {}
+    for c in dataframe.columns:
+        series_name, variable = c.split(' - ')
+        source_name, asset = series_name.split('.')
+        replacement_columns[c] = asset+":"+variable
+    renamed_data = dataframe.rename(columns=replacement_columns)
+    return renamed_data
+
+#%%
+
+fVerbose=True; # Flag to check interim data
+'''
+d_bgn="2006-01-01"
+d_end="2016-01-01"
+'''
+
+d_bgn="1995-01-01"
+d_end="2016-01-01"
+
+raw_data_non_adjusted=pd.DataFrame()
+raw_data_adjusted=pd.DataFrame()
+raw_data_action=pd.DataFrame()
+
+
+#%% i=67,78-> Bad Request
+for i in range(0,len(stocks_list)):
+    if stocks_list[i]=='nan':
+        continue
+    else:
+        raw_data=Quandl.get(stocks_list[i:i+1], returns="pandas", trim_start=d_bgn,  trim_end=d_end, authtoken="xxxxxx")
+        raw_data_cleaned_columns=clean_quandl_columns(raw_data)
+        raw_data_non_adjusted[raw_data_cleaned_columns.columns[:5]]=raw_data_cleaned_columns[raw_data_cleaned_columns.columns[:5]]
+        raw_data_adjusted[raw_data_cleaned_columns.columns[7:]]=raw_data_cleaned_columns[raw_data_cleaned_columns.columns[7:]]
+        raw_data_action[raw_data_cleaned_columns.columns[5:7]]=raw_data_cleaned_columns[raw_data_cleaned_columns.columns[5:7]]
+
+#%%
+hdf.put('/stocks/nonadjusted',raw_data_non_adjusted)
+hdf.put('/stocks/adjusted',raw_data_adjusted)
+hdf.put('/stocks/action',raw_data_action)
+
+#%%
+raw_data_Adj_Open=raw_data_adjusted.filter(like='Adj_Open',axis=1)
+raw_data_Adj_High=raw_data_adjusted.filter(like='Adj_High',axis=1)
+raw_data_Adj_Low=raw_data_adjusted.filter(like='Adj_Low',axis=1)
+raw_data_Adj_Close=raw_data_adjusted.filter(like='Adj_Close',axis=1)
+raw_data_Adj_Volume=raw_data_adjusted.filter(like='Adj_Volume',axis=1)
+
+hdf.put('/stocks/adjusted/adj_open',raw_data_Adj_Open)
+hdf.put('/stocks/adjusted/adj_high',raw_data_Adj_High)
+hdf.put('/stocks/adjusted/adj_low',raw_data_Adj_Low)
+hdf.put('/stocks/adjusted/adj_close',raw_data_Adj_Close)
+hdf.put('/stocks/adjusted/adj_volume',raw_data_Adj_Volume)
+
+#%%
+
+raw_data_Open=raw_data_non_adjusted.filter(like='Open',axis=1)
+raw_data_High=raw_data_non_adjusted.filter(like='High',axis=1)
+raw_data_Low=raw_data_non_adjusted.filter(like='Low',axis=1)
+raw_data_Close=raw_data_non_adjusted.filter(like='Close',axis=1)
+raw_data_Volume=raw_data_non_adjusted.filter(like='Volume',axis=1)
+
+hdf.put('/stocks/nonadjusted/open',raw_data_Open)
+hdf.put('/stocks/nonadjusted/high',raw_data_High)
+hdf.put('/stocks/nonadjusted/low',raw_data_Low)
+hdf.put('/stocks/nonadjusted/close',raw_data_Close)
+hdf.put('/stocks/nonadjusted/volume',raw_data_Volume)
+
+
+raw_data_Dividend=raw_data_action.filter(like='Dividend',axis=1)
+raw_data_Split=raw_data_action.filter(like='Split',axis=1)
+hdf.put('/stocks/action/dividend',raw_data_Dividend)
+hdf.put('/stocks/action/split',raw_data_Split)
+
+
+#%%
+
+
