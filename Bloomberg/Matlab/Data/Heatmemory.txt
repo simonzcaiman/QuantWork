@@ -1,0 +1,17 @@
+When you try to download a large amount of data using Bloomberg Matlab API, like fundamental data for 1000+ stocks for 20+ years
+your matlab history function might run for a while and return a java heap memory error.
+
+for example: 
+run the following code
+[d1,sec]=history(c,sec,fields,fromdate,todate,period)
+
+matlab return an error in java heap memory.
+
+Here is one way you can increase your max heap max. 
+1. First try 
+java.lang.Runtime.getRuntime.maxMemory
+to see how much maximum memory you have now
+2. change the parameter in slider in Preferences->Matlab->General-> Java Heap Memory and raise the maxium 
+
+Hope this help some of you! 
+
